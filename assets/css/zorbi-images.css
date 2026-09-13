@@ -1,0 +1,339 @@
+/* =========================================================
+   Zorbi character image overrides
+   Scoped ONLY to the specific swapped elements below so no
+   other page/template that shares the same base classes
+   (hero-image-items, about-wrapper, about-image, etc.) is
+   affected.
+   ========================================================= */
+
+/* ---- index-2.html : Hero image ----
+   Original hero-image.jpg was 738x512 (landscape) and was
+   revealed through a blob-shaped SVG mask sized for that
+   ratio. The Zorbi hero artwork is a tall, transparent
+   character cut-out, so the mask is disabled here and the
+   image is scaled with object-fit so nothing is stretched
+   or cropped. Column width (max 728px, matching the original
+   .thumb) is preserved; only the height is allowed to follow
+   the character's natural proportions. */
+.hero-2 .hero-image-items .thumb.zorbi-thumb {
+  mask: none;
+  -webkit-mask-image: none;
+  max-width: 620px;
+  margin: 0 auto;
+  text-align: center;
+}
+.hero-2 .hero-image-items .thumb.zorbi-thumb img {
+  width: 100%;
+  height: auto;
+  max-height: 640px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+@media (max-width: 1199px) {
+  .hero-2 .hero-image-items .thumb.zorbi-thumb {
+    max-width: 480px;
+  }
+  .hero-2 .hero-image-items .thumb.zorbi-thumb img {
+    max-height: 500px;
+  }
+}
+@media (max-width: 575px) {
+  .hero-2 .hero-image-items .thumb.zorbi-thumb {
+    max-width: 320px;
+  }
+  .hero-2 .hero-image-items .thumb.zorbi-thumb img {
+    max-height: 340px;
+  }
+}
+
+/* The "Back to School" notepad sticker (shape3) and pencil-case sticker
+   (shape1) were positioned to peek out from the edges of the old
+   rectangular/blob-masked photo. The Zorbi cut-out is narrower and
+   centered, so shape3 now lands on top of his face/chest. Nudge it up
+   into the clear space beside his raised hand instead of over the
+   character; shape1 is moved slightly further left so it sits beside
+   his leg rather than across it. */
+.hero-2 .hero-image-items.zorbi-hero-items .shape3 {
+  top: 6%;
+  left: 66%;
+}
+.hero-2 .hero-image-items.zorbi-hero-items .shape1 {
+  top: 62%;
+  left: -4%;
+}
+
+/* ---- index-2.html : About image ----
+   Original about-image.png (690x758) had its decorative blob
+   background baked into the photo itself. The Zorbi artwork
+   is a transparent cut-out, so we give it a fixed-ratio box
+   matching the original footprint and center the character
+   inside it with object-fit: contain so it is never distorted
+   or cropped and the surrounding layout/spacing is untouched. */
+.about-wrapper-2 .about-image.zorbi-about-image {
+  aspect-ratio: 690 / 758;
+  max-width: 690px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+.about-wrapper-2 .about-image.zorbi-about-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+}
+
+/* ---- about.html : About section images ----
+   about-1.png / about-2.png are shared with index.html via the
+   generic .about-wrapper / .about-image classes, so index.html
+   keeps using the original files untouched. These rules target
+   only the new .zorbi-about-1 / .zorbi-about-2 image classes
+   added on about.html, preserving the existing max-width boxes
+   (526px / 468px) already defined for .about-wrapper .about-image. */
+.about-wrapper .about-image img.zorbi-about-1,
+.about-wrapper .about-image .about-image-2 img.zorbi-about-2 {
+  border-bottom-left-radius: 0;
+  object-fit: contain;
+}
+
+/* Both Zorbi characters are full-body illustrations (unlike the original
+   two photos, which were off-center portraits), so at the original
+   about-image-2 sizing the Smarty character overlapped the Builder
+   character's face and looked like a double exposure. Scale Smarty down
+   and tuck it fully into the bottom-right corner so it reads as a small
+   accent character layered over the corner, not a competing full figure. */
+.about-wrapper .about-image.zorbi-about-wrap .about-image-2 {
+  max-width: 230px;
+  right: -12%;
+  bottom: -4%;
+}
+@media (max-width: 1899px) {
+  .about-wrapper .about-image.zorbi-about-wrap .about-image-2 {
+    max-width: 210px;
+    right: -10%;
+  }
+}
+@media (max-width: 1600px) {
+  .about-wrapper .about-image.zorbi-about-wrap .about-image-2 {
+    max-width: 190px;
+    right: -6%;
+  }
+}
+@media (max-width: 1199px) {
+  .about-wrapper .about-image.zorbi-about-wrap .about-image-2 {
+    right: 0;
+    bottom: 0;
+    max-width: 170px;
+  }
+}
+@media (max-width: 575px) {
+  .about-wrapper .about-image.zorbi-about-wrap .about-image-2 {
+    max-width: 130px;
+  }
+}
+
+/* ---- index-2.html : "More Ways to Play at Zorbi" activity cards ----
+   extra-activities-1/2/3.jpg were generic stock photos unrelated to the
+   card titles (Excavator Ride, Baby Car Ride, Snow Play). Replaced with
+   dedicated Zorbi character illustrations matching each activity. These
+   are transparent character cut-outs rather than full-bleed photos, so
+   object-fit is switched from cover to contain and a soft themed
+   background (reusing the site's existing --bg palette) fills the
+   rounded thumb so each card still reads as an intentional, fully
+   designed tile at the same 414px height as before. */
+.extra-activities-box-2 .thumb.zorbi-activity-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.extra-activities-box-2 .thumb.zorbi-activity-thumb img {
+  object-fit: contain;
+  padding: 36px;
+  box-sizing: border-box;
+}
+.extra-activities-box-2 .thumb.zorbi-activity-excavator {
+  background-color: var(--bg);
+}
+.extra-activities-box-2 .thumb.zorbi-activity-car {
+  background-color: var(--bg5);
+}
+.extra-activities-box-2 .thumb.zorbi-activity-snow {
+  background-color: var(--bg2);
+}
+@media (max-width: 575px) {
+  .extra-activities-box-2 .thumb.zorbi-activity-thumb img {
+    padding: 24px;
+  }
+}
+
+/* ---- index-2.html : Values section thumb ----
+   Original girl-graduation.png was 549x729 and rendered at its native
+   pixel size (the .thumb/img in this section have no max-width in the
+   base CSS). The Zorbi teddy-bear.png is a much larger 1024x1536 file,
+   so at native size it overflowed the column, overlapping the section
+   heading and the side value cards. Cap the thumb to the original
+   image's width and let height scale with it, so the bear renders at
+   the same footprint the girl photo used to occupy. */
+.values-wrapper-2 .thumb.zorbi-values-thumb {
+  max-width: 549px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.values-wrapper-2 .thumb.zorbi-values-thumb img {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+/* ---- index-2.html / about.html / book-now.html : Site logo ----
+   The Kidzu wordmark (black-logo.svg / white-logo.svg) was a thin
+   177x40 text banner with no width/height set in the base CSS beyond
+   a couple of mobile overrides, so it rendered at that intrinsic SVG
+   size and read fine even that small because it was plain type.
+   The Zorbi logo (assets/img/zorbi/Logo.png) is a detailed crest
+   (mascot + wordmark + banner text, 1536x1024, ~1.5:1), so pinning it
+   to the old 40px-tall box left it illegibly tiny and letterboxed.
+   Instead size it by height at roughly its own aspect ratio (width =
+   height * 1.5) so it reads clearly, and let the header/footer grow
+   to fit rather than squeezing the crest into the old footprint. */
+.header-1 .logo img.zorbi-logo,
+.header-section-2 .header-2 .logo img.zorbi-logo,
+.footer-info-wrapper .footer-content .footer-logo img.zorbi-logo {
+  width: 111px;
+  height: 74px;
+  object-fit: contain;
+}
+@media (max-width: 1199px) {
+  .header-1 .logo img.zorbi-logo {
+    width: 96px;
+    height: 64px;
+  }
+}
+@media (max-width: 575px) {
+  .header-1 .logo img.zorbi-logo,
+  .header-section-2 .header-2 .logo img.zorbi-logo {
+    width: 84px;
+    height: 56px;
+  }
+}
+
+.zorbi-logo-offcanvas {
+  width: 129px;
+  height: 86px;
+  object-fit: contain;
+}
+@media (max-width: 575px) {
+  .zorbi-logo-offcanvas {
+    width: 96px;
+    height: 64px;
+  }
+}
+
+/* ---- about.html : Book Admission CTA ----
+   The heading/button/phone-number block is laid over a decorative
+   image (an orange dotted-border frame with a white card baked in as
+   two stacked PNGs), originally centered with a fixed-pixel
+   padding-top tuned to that image's desktop size. The frame and white
+   card scale down together as the viewport narrows, but the
+   fixed-pixel padding didn't shrink to match — below ~470px the
+   stacked text (heading + button + phone row) grew taller than the
+   shrinking white card, so the phone number spilled out past its
+   bottom edge. Fixed by stretching .content to the frame's full
+   height and vertically centering it with flexbox instead of a fixed
+   top offset — since the white card is itself vertically centered in
+   the same frame, this keeps the text block aligned with the card at
+   any size instead of anchoring it to a top offset that stops
+   matching once the card gets small. The heading's manual 2-line
+   break is also kept on mobile (overriding the template's default
+   "un-break below 767px" rule) and sizing/gaps are tightened at
+   narrow widths so the block never grows taller than the card. */
+.book-admission-content .content {
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 17%;
+  box-sizing: border-box;
+}
+.book-admission-content .content .section-title br {
+  display: inline !important;
+}
+.book-admission-content .content .about-button {
+  margin-top: 12px;
+}
+@media (max-width: 767px) {
+  .book-admission-content .content {
+    padding-left: 12%;
+    padding-right: 9%;
+  }
+  .book-admission-content .content .info-content {
+    margin-top: 22px;
+  }
+}
+@media (max-width: 575px) {
+  .book-admission-content .content {
+    padding-left: 10%;
+    padding-right: 9%;
+  }
+  .book-admission-content .content .about-button {
+    margin-top: 10px;
+  }
+  .book-admission-content .content .info-content {
+    margin-top: 16px;
+    gap: 10px;
+  }
+  .book-admission-content .content .info-content .icon {
+    width: 44px;
+    height: 44px;
+    line-height: 44px;
+  }
+  .book-admission-content .content .info-content .icon img {
+    width: 18px;
+  }
+  .book-admission-content .content .info-content .info-cont p {
+    font-size: 13px;
+  }
+  .book-admission-content .content .info-content .info-cont h3 {
+    font-size: 17px !important;
+  }
+}
+@media (max-width: 400px) {
+  .book-admission-content .content {
+    padding-left: 8%;
+  }
+  .book-admission-content .content .section-title .sec-sub {
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .book-admission-content .content .section-title h2 {
+    font-size: 17px;
+    line-height: 110%;
+  }
+  .book-admission-content .content .about-button {
+    margin-top: 4px;
+    transform: scale(0.68);
+    transform-origin: left center;
+  }
+  .book-admission-content .content .info-content {
+    margin-top: 2px;
+  }
+  .book-admission-content .content .info-content .icon {
+    width: 38px;
+    height: 38px;
+    line-height: 38px;
+  }
+  .book-admission-content .content .info-content .icon img {
+    width: 15px;
+  }
+  .book-admission-content .content .info-content .info-cont h3 {
+    font-size: 15px !important;
+  }
+}
