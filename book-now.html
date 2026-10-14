@@ -294,27 +294,32 @@
         color: var(--white);
       }
 
-      /* Customer lookup */
+      /* Customer & children (mirrors the CRM front-desk Check In) */
       .phone-search-row {
         display: flex;
         gap: 10px;
       }
       .phone-search-row input {
         flex: 1;
-        min-height: 52px;
-        padding: 0 20px;
+        min-width: 0;
+        min-height: 54px;
+        padding: 0 18px;
         border-radius: 12px;
         border: 1.5px solid rgba(56, 84, 105, 0.15);
         color: var(--header);
-        font-size: 16px;
+        font-size: 18px;
+        letter-spacing: 0.5px;
         outline: none;
       }
-      .phone-search-row input:focus {
+      .phone-search-row input:focus,
+      .new-kid-row input:focus,
+      .guardian-name-field input:focus {
         border-color: var(--theme);
+        box-shadow: 0 0 0 3px rgba(42, 111, 219, 0.12);
       }
       .phone-search-row button {
-        min-width: 52px;
-        min-height: 52px;
+        min-width: 54px;
+        min-height: 54px;
         border-radius: 12px;
         border: none;
         background: var(--theme);
@@ -329,146 +334,290 @@
         opacity: 0.7;
         cursor: default;
       }
+      .field-hint {
+        margin: 8px 2px 0;
+        font-size: 13px;
+        color: var(--text);
+      }
 
-      .registered-children-box {
-        margin-top: 16px;
-        border: 1px solid rgba(56, 84, 105, 0.15);
-        border-radius: 12px;
-        padding: 16px 18px;
+      .cust-box {
+        margin-top: 14px;
+        border-radius: 14px;
+        border: 1.5px solid #c7dbfa;
+        background: #f2f7ff;
+        padding: 14px;
       }
-      .registered-children-box p.label {
-        margin: 0 0 12px;
-        font-weight: 600;
-        color: var(--header);
+      .cust-box--new {
+        border-color: rgba(56, 84, 105, 0.15);
+        background: #fafafa;
       }
-      .registered-child-row {
+      .cust-box__head {
         display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 10px;
-        min-height: 44px;
-        cursor: pointer;
-        color: var(--text);
+      }
+      .cust-box__title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        color: var(--header);
         font-size: 15px;
+        word-break: break-word;
       }
-      .registered-child-row input {
-        width: 18px;
-        height: 18px;
-      }
-      .registered-child-row em {
+      .cust-box__title i {
         color: var(--theme);
-        font-style: normal;
+      }
+      .cust-box__change {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(56, 84, 105, 0.08);
+        color: var(--header);
+        cursor: pointer;
       }
 
-      /* Children rows */
-      .child-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 14px;
-        align-items: flex-end;
-        padding: 16px 0;
-        border-bottom: 1px dashed rgba(56, 84, 105, 0.15);
-      }
-      .child-row:last-of-type {
-        border-bottom: none;
-      }
-      .child-row__field {
+      .guardian-name-field {
+        margin-top: 12px;
         display: flex;
         flex-direction: column;
         gap: 6px;
       }
-      .child-row__field label {
+      .guardian-name-field label,
+      .new-kid-label {
         font-size: 13px;
+        font-weight: 700;
         color: var(--text);
-        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
       }
-      .child-row__field input {
-        min-height: 46px;
-        padding: 0 16px;
-        border-radius: 10px;
-        border: 1.5px solid rgba(56, 84, 105, 0.15);
-        color: var(--header);
-        font-size: 15px;
-        outline: none;
-        background: var(--white);
-      }
-      .child-row__field input:focus {
-        border-color: var(--theme);
-      }
-      .child-row__name {
-        flex: 2 1 260px;
-      }
-      .child-row__ticket {
-        flex: 1 1 180px;
-      }
-      .child-row__remove {
-        min-width: 44px;
-        min-height: 44px;
-        border-radius: 10px;
-        border: 1.5px solid rgba(179, 38, 30, 0.25);
-        background: #fff2f0;
-        color: #b3261e;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .child-row__remove:disabled {
-        opacity: 0.35;
-        cursor: default;
-      }
-      @media (max-width: 575px) {
-        .child-row {
-          flex-direction: column;
-          align-items: stretch;
-        }
-        .child-row__name,
-        .child-row__ticket {
-          flex: none;
-          width: 100%;
-        }
-        .child-row__field input {
-          width: 100%;
-        }
-        .child-row__remove {
-          align-self: flex-end;
-        }
-      }
-
-      .add-child-btn {
-        margin-top: 18px;
-        min-height: 46px;
-        padding: 10px 24px;
-        border-radius: 30px;
-        border: 1.5px dashed var(--theme);
-        background: transparent;
-        color: var(--theme);
-        font-weight: 700;
-        cursor: pointer;
-      }
-
-      /* Discount */
-      .discount-input-wrap {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        max-width: 260px;
-      }
-      .discount-input-wrap span {
-        font-weight: 700;
-        color: var(--header);
-      }
-      .discount-input-wrap input {
-        flex: 1;
+      .guardian-name-field input,
+      .new-kid-row input {
         min-height: 50px;
         padding: 0 16px;
-        border-radius: 10px;
+        border-radius: 12px;
         border: 1.5px solid rgba(56, 84, 105, 0.15);
-        font-size: 16px;
+        background: var(--white);
         color: var(--header);
+        font-size: 16px; /* 16px or more stops iOS zooming into the field */
         outline: none;
+        width: 100%;
       }
-      .discount-input-wrap input:focus {
-        border-color: var(--theme);
+
+      .kids-head {
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px solid #c7dbfa;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+      }
+      .kids-select-all {
+        flex-shrink: 0;
+        white-space: nowrap;
+        border: none;
+        background: transparent;
+        color: var(--secondary);
+        font-weight: 700;
+        font-size: 14px;
+        padding: 8px 6px;
+        cursor: pointer;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+
+      .kid-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .kid-chips:empty {
+        display: none;
+      }
+      .kid-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 46px;
+        padding: 8px 16px;
+        border-radius: 30px;
+        border: 2px solid rgba(56, 84, 105, 0.18);
+        background: var(--white);
+        color: var(--header);
+        font-weight: 600;
+        font-size: 16px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .kid-chip i {
+        font-size: 17px;
+        color: rgba(56, 84, 105, 0.4);
+      }
+      .kid-chip small {
+        font-weight: 500;
+        opacity: 0.8;
+        font-size: 13px;
+      }
+      .kid-chip.picked {
+        background: var(--secondary);
+        border-color: var(--secondary);
+        color: var(--white);
+      }
+      .kid-chip.picked i {
+        color: var(--white);
+      }
+
+      .new-kid-label {
+        display: block;
+        margin: 14px 0 6px;
+      }
+      .new-kid-row {
+        display: flex;
+        gap: 8px;
+      }
+      .new-kid-row input {
+        flex: 1;
+        min-width: 0;
+      }
+      .new-kid-row button {
+        min-height: 50px;
+        padding: 0 18px;
+        border-radius: 12px;
+        border: 2px solid var(--theme);
+        background: var(--white);
+        color: var(--theme);
+        font-weight: 700;
+        font-size: 15px;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+
+      /* Mobile checkout bar (hidden on desktop, where the summary is sticky) */
+      .mobile-checkout-bar {
+        display: none;
+      }
+      @media (max-width: 991px) {
+        .booking-section {
+          padding-bottom: 110px;
+        }
+        .booking-summary-col .checkin-btn,
+        .booking-summary-col .form-error {
+          display: none !important;
+        }
+        .mobile-checkout-bar {
+          display: block;
+          position: fixed;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 990;
+          background: var(--white);
+          box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.12);
+          padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+        }
+        .mobile-checkout-bar[hidden] {
+          display: none;
+        }
+        .back-to-top {
+          bottom: 100px !important;
+        }
+      }
+      .mobile-checkout-bar__error {
+        margin-bottom: 8px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        background: #fff2f0;
+        color: #b3261e;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .mobile-checkout-bar__row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .mobile-checkout-bar__info {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        line-height: 1.2;
+      }
+      .mobile-checkout-bar__info span {
+        font-size: 13px;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .mobile-checkout-bar__info strong {
+        font-size: 22px;
+        color: var(--secondary);
+        font-weight: 800;
+      }
+      .mobile-checkout-bar__btn {
+        min-height: 54px;
+        padding: 0 28px;
+        border: none;
+        border-radius: 14px;
+        background: var(--theme);
+        color: var(--white);
+        font-size: 17px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .mobile-checkout-bar__btn:disabled {
+        opacity: 0.55;
+      }
+
+      /* Phones: tighter cards, 2-up plans and age buttons */
+      @media (max-width: 575px) {
+        .booking-card__head {
+          margin-bottom: 14px;
+        }
+        .booking-card__head h3 {
+          font-size: 18px;
+        }
+        .plan-grid {
+          grid-template-columns: repeat(2, 1fr);
+          gap: 10px;
+        }
+        .plan-card {
+          padding: 14px;
+        }
+        .plan-card__name {
+          font-size: 15px;
+          margin-bottom: 8px;
+        }
+        .plan-card__meta {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 4px;
+        }
+        .age-btn-row {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 10px;
+        }
+        .age-btn {
+          min-width: 0;
+          width: 100%;
+          padding: 10px;
+        }
+        .chip {
+          padding: 8px 16px;
+        }
       }
 
       /* Order summary */
@@ -998,18 +1147,22 @@
                     <div class="age-btn-row" id="ageButtonsRow"></div>
                   </div>
 
-                  <!-- Step 4: Customer Lookup -->
+                  <!-- Step 4: Customer & children (same flow as the CRM front desk) -->
                   <div class="booking-card" id="step-customer">
                     <div class="booking-card__head">
                       <span class="step-num">4</span>
-                      <h3>Customer — Search by Phone</h3>
+                      <h3>Your Phone &amp; Children</h3>
                     </div>
-                    <div class="phone-search-row">
+
+                    <!-- Phone: searches the CRM automatically once complete -->
+                    <div class="phone-search-row" id="phoneSearchRow">
                       <input
                         type="tel"
                         id="customerPhoneInput"
-                        placeholder="e.g. 03164094959"
+                        placeholder="03001234567"
                         inputmode="tel"
+                        autocomplete="tel"
+                        maxlength="16"
                       />
                       <button
                         type="button"
@@ -1022,53 +1175,56 @@
                         ></i>
                       </button>
                     </div>
-                    <div
-                      class="inline-message"
-                      id="customerLookupMsg"
-                      hidden
-                    ></div>
-                    <div
-                      class="registered-children-box"
-                      id="registeredChildrenBox"
-                      hidden
-                    >
-                      <p class="label">
-                        Previously registered children — tick to add
-                      </p>
-                      <div id="registeredChildrenList"></div>
-                    </div>
-                  </div>
+                    <p class="field-hint" id="phoneHint">
+                      We'll find your children automatically if you've visited before.
+                    </p>
+                    <div class="inline-message" id="customerLookupMsg" hidden></div>
 
-                  <!-- Step 5: Children -->
-                  <div class="booking-card" id="step-children">
-                    <div class="booking-card__head">
-                      <span class="step-num">5</span>
-                      <h3>Children</h3>
-                    </div>
-                    <div id="childrenList"></div>
-                    <button
-                      type="button"
-                      class="add-child-btn"
-                      id="addChildBtn"
-                    >
-                      + Add Another Child
-                    </button>
-                  </div>
+                    <!-- Customer found / new customer box -->
+                    <div class="cust-box" id="customerBox" hidden>
+                      <div class="cust-box__head">
+                        <span class="cust-box__title" id="customerBoxTitle"></span>
+                        <button
+                          type="button"
+                          class="cust-box__change"
+                          id="customerChangeBtn"
+                          aria-label="Change phone number"
+                        >
+                          <i class="fa-solid fa-xmark"></i>
+                        </button>
+                      </div>
 
-                  <!-- Step 6: Discount -->
-                  <div class="booking-card" id="step-discount">
-                    <div class="booking-card__head">
-                      <span class="step-num">6</span>
-                      <h3>Discount</h3>
-                    </div>
-                    <div class="discount-input-wrap">
-                      <span>Rs</span>
-                      <input
-                        type="number"
-                        id="discountInput"
-                        min="0"
-                        value="0"
-                      />
+                      <div class="guardian-name-field" id="guardianNameField" hidden>
+                        <label for="guardianNameInput">Parent / guardian name</label>
+                        <input
+                          type="text"
+                          id="guardianNameInput"
+                          placeholder="Your name"
+                          autocomplete="name"
+                          maxlength="100"
+                        />
+                      </div>
+
+                      <div class="kids-head" id="kidsHead" hidden>
+                        <span id="kidsHeadLabel">Tick the children coming in</span>
+                        <button type="button" class="kids-select-all" id="kidsSelectAllBtn" hidden></button>
+                      </div>
+                      <div class="kid-chips" id="kidChips"></div>
+
+                      <label class="new-kid-label" for="newChildInput" id="newChildLabel">Child's name</label>
+                      <div class="new-kid-row">
+                        <input
+                          type="text"
+                          id="newChildInput"
+                          placeholder="Type a name and tap Add"
+                          autocomplete="off"
+                          maxlength="100"
+                          enterkeyhint="done"
+                        />
+                        <button type="button" id="addChildBtn">
+                          <i class="fa-solid fa-plus"></i> Add
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1091,14 +1247,10 @@
                     </div>
                     <div class="summary-row">
                       <span>Children</span>
-                      <span id="summaryChildren">1</span>
-                    </div>
-                    <div class="summary-row">
-                      <span>Discount</span>
-                      <span id="summaryDiscount">—</span>
+                      <span id="summaryChildren">—</span>
                     </div>
                     <div class="summary-row summary-row--total">
-                      <span>Admission</span>
+                      <span>Admission (estimate)</span>
                       <span id="summaryTotal">Rs 0</span>
                     </div>
 
@@ -1115,6 +1267,20 @@
                       <span id="checkinBtnLabel">Check In · Rs 0</span>
                     </button>
                   </div>
+                </div>
+              </div>
+
+              <!-- Mobile: total + Check In always within thumb reach -->
+              <div class="mobile-checkout-bar" id="mobileCheckoutBar">
+                <div class="mobile-checkout-bar__error" id="mobileFormError" hidden></div>
+                <div class="mobile-checkout-bar__row">
+                  <div class="mobile-checkout-bar__info">
+                    <span id="mobileBarCount">No plan yet</span>
+                    <strong id="mobileBarTotal">Rs 0</strong>
+                  </div>
+                  <button type="button" class="mobile-checkout-bar__btn" id="mobileCheckinBtn">
+                    Check In
+                  </button>
                 </div>
               </div>
 

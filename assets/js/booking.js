@@ -1,64 +1,56 @@
 /* =========================================================================
    Zorbi Kids Club — Book Now page logic
    =========================================================================
-   TODO: CRM INTEGRATION
+   CRM INTEGRATION — everything is handled by the Creamy Utopia CRM API.
+   This website has no backend of its own: every call below goes straight
+   from the browser to the CRM with the publishable `X-Tenant-Key`
+   (pk_live_...), which is safe to ship in client-side JS.
 
-     1. fetchZones() / fetchAdmissionPlans(zoneId)
-        Call the real CRM directly from the browser using the publishable
-        `X-Tenant-Key` (pk_live_...). That key is safe to ship in client-side
-        JS — it only grants read access to zones/plans, nothing sensitive.
+     GET  /api/zones                       play zones
+     GET  /api/admission-plans?zoneId=     plans for a zone (with age prices)
+     GET  /api/customer-lookup?phone=      a returning customer's children
+                                           (names + age group only); runs
+                                           by itself once the number is full
+     POST /api/bookings                    creates the booking (UNPAID)
 
-     2. lookupCustomerByPhone(phone)
-        Calls OUR OWN proxy server (PROXY_BASE_URL), never the CRM directly.
-        The proxy is the only place that holds the secret `X-Api-Key`
-        (sk_live_...) required by GET /api/customers — that key must never
-        reach the browser. See /server for the proxy implementation.
-
-     3. submitBooking(payload)
-        TODO: replace with a real CRM booking-creation endpoint once one is
-        documented. There is currently no POST /api/bookings in the CRM API,
-        so this still uses local/mock booking creation (status UNPAID).
-        The payload includes zone, plan, ageGroup, discount, totalAmount,
-        children, status and createdAt — no paymentMethod field, since the
-        customer never chooses one on this website.
-
-   Pricing is FLAT per admission plan (`base_price`) — this CRM has no
-   per-age-group pricing, by design. `ageGroup` is stored per child for
-   record-keeping only and never affects the total.
+   The CRM re-prices every booking itself (plan price per age group, plus
+   any peak/holiday rule), so the total shown here is an estimate. Any discount
+   is given by staff at the counter, never on this page.
 
    Payment method (Cash / Card / Mobile) is chosen by staff at the counter,
    not by the customer here. After check-in, this page renders a QR code
    that encodes only the booking's reference string
-   (`ZORBI-BOOKING-{bookingId}`) — not a URL. Staff scan that QR code at the
-   counter, which should open the CRM's check-in screen pre-filled with
-   this booking's zone, plan, age group, phone, and child names. Staff then
-   select the payment method, change status from UNPAID to PAID, and print
-   the receipt — all inside the CRM / POS software, not on this website.
-
-   There is still no receipt.html page on this website, and the QR code
-   never encodes a URL — it only carries the bookingId reference above.
+   (`ZORBI-BOOKING-{bookingId}`, e.g. ZORBI-BOOKING-WB-7K3F9Q) — not a URL.
+   Staff scan that QR code on the CRM's Front Desk page, which opens Check In
+   pre-filled with this booking's zone, plan, age group, phone and children.
+   Staff then take payment and print the slip — all inside the CRM.
    ========================================================================= */
 
-// TODO: set the real CRM API host before going live.
-const CRM_BASE_URL = "https://creamy-utopia-api.easyspawn.com";
-// TODO: set the real publishable tenant key before going live. Safe in browser JS.
-const CRM_TENANT_KEY = "pk_live_ttARxufRQinoyYpQLZSSWJPYawxSjr4f";
-// Base URL of our own proxy server (see /server) once it is deployed.
-const PROXY_BASE_URL = "http://localhost:4000";
-
-function mockDelay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+// Opened on localhost → the local CRM (php artisan serve on :8000) with the
+// local database's own publishable key; anywhere else → production.
+const IS_LOCAL = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+const CRM_BASE_URL = IS_LOCAL
+  ? "http://127.0.0.1:8000"
+  : "https://creamy-utopia-api.easyspawn.com";
+// Publishable tenant key (CRM → `php artisan tenant:api-key zorbi-kids-club public`).
+const CRM_TENANT_KEY = IS_LOCAL
+  ? "pk_live_MhOHLSJ1QJfErL4SfgXQ0eTLNjqq8vNw"
+  : "pk_live_ttARxufRQinoyYpQLZSSWJPYawxSjr4f";
 
 // Zones as last returned by fetchZones(), kept so "All Zones" can fan out an
 // admission-plans request per zone (the CRM requires a zoneId on every call).
 let allLoadedZones = [];
 
-async function crmGet(path) {
+async function crmRequest(path, options = {}) {
   let res;
   try {
     res = await fetch(`${CRM_BASE_URL}${path}`, {
-      headers: { "X-Tenant-Key": CRM_TENANT_KEY, Accept: "application/json" },
+      ...options,
+      headers: {
+        "X-Tenant-Key": CRM_TENANT_KEY,
+        Accept: "application/json",
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+      },
     });
   } catch (networkErr) {
     const error = new Error("Network error contacting CRM");
@@ -83,6 +75,10 @@ async function crmGet(path) {
   }
 
   return json.data;
+}
+
+function crmGet(path) {
+  return crmRequest(path);
 }
 
 async function fetchZones() {
@@ -114,52 +110,24 @@ async function fetchAdmissionPlans(zoneId) {
 }
 
 async function lookupCustomerByPhone(phone) {
-  let res;
   try {
-    res = await fetch(
-      `${PROXY_BASE_URL}/api/customer-lookup?phone=${encodeURIComponent(phone)}`,
-      { headers: { Accept: "application/json" } },
+    const data = await crmGet(
+      `/api/customer-lookup?phone=${encodeURIComponent(phone)}`,
     );
-  } catch (networkErr) {
-    const error = new Error("Network error contacting lookup service");
-    error.status = 0;
-    throw error;
+    return { found: true, data };
+  } catch (err) {
+    if (err.status === 404) return { found: false, data: null };
+    throw err;
   }
-
-  if (res.status === 404) {
-    return { found: false, data: null };
-  }
-
-  let json = null;
-  try {
-    json = await res.json();
-  } catch (parseErr) {
-    // leave json as null; handled by the !json check below
-  }
-
-  if (!res.ok || !json || !json.success) {
-    const error = new Error((json && json.message) || "Customer lookup failed");
-    error.status = res.status;
-    error.errorCode = json && json.error_code;
-    throw error;
-  }
-
-  return { found: true, data: json.data };
 }
 
 async function submitBooking(payload) {
-  // TODO: replace with real CRM booking-creation endpoint once available.
-  // const res = await fetch(`${CRM_BASE_URL}/api/bookings`, {
-  //   method: "POST",
-  //   headers: { "Content-Type": "application/json" },
-  //   body: JSON.stringify(payload),
-  // });
-  // if (!res.ok) throw new Error("Booking submission failed");
-  // return res.json();
-
-  await mockDelay(650);
-  const bookingId = "BKG-" + Date.now().toString(36).toUpperCase();
-  return { success: true, data: { bookingId, ...payload } };
+  // Returns { bookingId: "WB-XXXXXX", status: "UNPAID", estimatedAmount, ... }
+  const data = await crmRequest("/api/bookings", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return { success: true, data };
 }
 
 /* ---------------------------------------------------------------------- */
@@ -186,6 +154,9 @@ function describeApiError(err, context) {
 
 const AGE_GROUPS = ["Infant", "Toddler", "Child", "Adult"];
 const ALL_ZONES_ID = "all";
+// Pakistani mobile numbers are 11 digits (03xx…), 12 with the 92 prefix.
+const PHONE_MIN_DIGITS = 11;
+const IS_MOBILE = () => window.matchMedia("(max-width: 991px)").matches;
 
 const state = {
   zones: [],
@@ -202,15 +173,16 @@ const state = {
 
   ageGroup: null,
 
+  // Customer — same flow as the CRM front-desk Check In: type the phone, the
+  // CRM is searched automatically, known children appear as tick chips.
   phone: "",
-  customerLookupLoading: false,
-  customerLookupError: false,
-  customerLookupErrorMessage: null,
-  customerFound: null,
-  registeredChildren: [],
-
-  children: [{ name: "", ticketNo: "" }],
-  discount: 0,
+  lookupStatus: "idle", // idle | loading | found | new | error
+  lookupErrorMessage: null,
+  lookupSeq: 0,
+  knownChildren: [], // [{ name, ageGroup }] from the CRM
+  pickedNames: [], // known children ticked
+  addedNames: [], // new children typed in
+  guardianName: "",
 
   submitting: false,
 };
@@ -227,27 +199,39 @@ const el = {
 
   ageButtonsRow: document.getElementById("ageButtonsRow"),
 
+  phoneSearchRow: document.getElementById("phoneSearchRow"),
   phoneInput: document.getElementById("customerPhoneInput"),
+  phoneHint: document.getElementById("phoneHint"),
   searchBtn: document.getElementById("customerSearchBtn"),
   searchBtnIcon: document.getElementById("customerSearchBtnIcon"),
   customerLookupMsg: document.getElementById("customerLookupMsg"),
-  registeredChildrenBox: document.getElementById("registeredChildrenBox"),
-  registeredChildrenList: document.getElementById("registeredChildrenList"),
-
-  childrenList: document.getElementById("childrenList"),
+  customerBox: document.getElementById("customerBox"),
+  customerBoxTitle: document.getElementById("customerBoxTitle"),
+  customerChangeBtn: document.getElementById("customerChangeBtn"),
+  guardianNameField: document.getElementById("guardianNameField"),
+  guardianNameInput: document.getElementById("guardianNameInput"),
+  kidsHead: document.getElementById("kidsHead"),
+  kidsHeadLabel: document.getElementById("kidsHeadLabel"),
+  kidsSelectAllBtn: document.getElementById("kidsSelectAllBtn"),
+  kidChips: document.getElementById("kidChips"),
+  newChildLabel: document.getElementById("newChildLabel"),
+  newChildInput: document.getElementById("newChildInput"),
   addChildBtn: document.getElementById("addChildBtn"),
-
-  discountInput: document.getElementById("discountInput"),
 
   summaryZone: document.getElementById("summaryZone"),
   summaryPlan: document.getElementById("summaryPlan"),
   summaryAge: document.getElementById("summaryAge"),
   summaryChildren: document.getElementById("summaryChildren"),
-  summaryDiscount: document.getElementById("summaryDiscount"),
   summaryTotal: document.getElementById("summaryTotal"),
 
   checkinBtn: document.getElementById("checkinBtn"),
   checkinBtnLabel: document.getElementById("checkinBtnLabel"),
+
+  mobileBar: document.getElementById("mobileCheckoutBar"),
+  mobileBarCount: document.getElementById("mobileBarCount"),
+  mobileBarTotal: document.getElementById("mobileBarTotal"),
+  mobileCheckinBtn: document.getElementById("mobileCheckinBtn"),
+  mobileFormError: document.getElementById("mobileFormError"),
 
   bookingFormWrapper: document.getElementById("bookingFormWrapper"),
   bookingConfirmation: document.getElementById("bookingConfirmation"),
@@ -286,13 +270,49 @@ function formatMoney(amount, currency) {
   return `${symbol} ${Number(amount).toLocaleString()}`;
 }
 
+function phoneDigits(value) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+// On phones, glide to the next step after a choice so the customer never has
+// to hunt for it — one thumb, top to bottom.
+function scrollToStep(id) {
+  if (!IS_MOBILE()) return;
+  const target = document.getElementById(id);
+  if (!target) return;
+  window.scrollTo({
+    top: target.getBoundingClientRect().top + window.scrollY - 90,
+    behavior: "smooth",
+  });
+}
+
+// Plan price for the chosen age group (CRM `prices`), else the plan's base_price.
+function planPrice(plan, ageGroup) {
+  const override =
+    ageGroup &&
+    (plan.prices || []).find((p) => p.age_group === ageGroup.toLowerCase());
+  return Number(override ? override.price : plan.base_price);
+}
+
+// Everyone coming in: ticked known children, added ones, plus a name still
+// sitting in the box (people forget to tap Add in a rush).
+function getChildNames() {
+  const names = [...state.pickedNames, ...state.addedNames];
+  const typed = el.newChildInput.value.trim();
+  if (
+    typed &&
+    !names.some((name) => name.toLowerCase() === typed.toLowerCase())
+  ) {
+    names.push(typed);
+  }
+  return names;
+}
+
 function calculateTotal() {
   const plan = getSelectedPlan();
   if (!plan) return 0;
-  const childCount = Math.max(state.children.length, 1);
-  const raw =
-    Number(plan.base_price) * childCount - Number(state.discount || 0);
-  return Math.max(raw, 0);
+  const childCount = Math.max(getChildNames().length, 1);
+  return planPrice(plan, state.ageGroup) * childCount;
 }
 
 /* ------------------------------- Step 1: Zones ------------------------- */
@@ -358,6 +378,7 @@ function handleZoneChipClick(zoneId) {
   renderZones();
   loadPlans();
   renderOrderSummary();
+  scrollToStep("step-plan");
 }
 
 /* ------------------------------- Step 2: Plans -------------------------- */
@@ -398,16 +419,26 @@ function renderPlans() {
   el.planGrid.innerHTML = state.plans
     .map((plan) => {
       const active = String(plan.id) === state.selectedPlanId ? " active" : "";
+      const duration = plan.duration_minutes
+        ? `<span class="plan-card__duration"><i class="fa-regular fa-clock"></i> ${formatDuration(plan.duration_minutes)}</span>`
+        : `<span class="plan-card__duration">${plan.type === "daypass" ? "Full day" : "Entry"}</span>`;
       return `
         <button type="button" class="plan-card${active}" data-plan-id="${plan.id}">
           <h4 class="plan-card__name">${escapeHtml(plan.name)}</h4>
           <div class="plan-card__meta">
-            <span class="plan-card__duration"><i class="fa-regular fa-clock"></i> ${plan.duration_minutes}m</span>
-            <span class="plan-card__price">${formatMoney(plan.base_price)}</span>
+            ${duration}
+            <span class="plan-card__price">${formatMoney(planPrice(plan, state.ageGroup))}</span>
           </div>
         </button>`;
     })
     .join("");
+}
+
+function formatDuration(minutes) {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours}h ${rest}m` : `${hours} hour${hours > 1 ? "s" : ""}`;
 }
 
 async function loadPlans() {
@@ -434,10 +465,12 @@ async function loadPlans() {
 }
 
 function handlePlanCardClick(planId) {
-  state.selectedPlanId = state.selectedPlanId === planId ? null : planId;
+  const wasSelected = state.selectedPlanId === planId;
+  state.selectedPlanId = wasSelected ? null : planId;
   renderPlans();
   renderOrderSummary();
   updateCheckinButtonState();
+  if (!wasSelected) scrollToStep(state.ageGroup ? "step-customer" : "step-age");
 }
 
 /* ------------------------------- Step 3: Age group ----------------------- */
@@ -450,52 +483,16 @@ function renderAgeButtons() {
 }
 
 function handleAgeButtonClick(age) {
+  const firstPick = !state.ageGroup;
   state.ageGroup = age;
   renderAgeButtons();
+  if (!state.plansLoading) renderPlans(); // prices differ per age group
   renderOrderSummary();
   updateCheckinButtonState();
+  if (firstPick) scrollToStep("step-customer");
 }
 
-/* ------------------------------- Step 4: Customer lookup ------------------ */
-
-function renderCustomerLookupState() {
-  if (state.customerLookupError) {
-    el.customerLookupMsg.hidden = false;
-    el.customerLookupMsg.className = "inline-message inline-message--error";
-    el.customerLookupMsg.textContent =
-      state.customerLookupErrorMessage ||
-      "Couldn't search for this customer — please try again.";
-    el.registeredChildrenBox.hidden = true;
-    return;
-  }
-
-  if (state.customerFound === true) {
-    el.customerLookupMsg.hidden = true;
-    el.registeredChildrenBox.hidden = false;
-    el.registeredChildrenList.innerHTML = state.registeredChildren
-      .map(
-        (child, index) => `
-        <label class="registered-child-row">
-          <input type="checkbox" class="registered-child-checkbox" data-child-index="${index}">
-          <span>${escapeHtml(child.name)} <em>(${escapeHtml(child.ageGroup)})</em></span>
-        </label>`,
-      )
-      .join("");
-    return;
-  }
-
-  if (state.customerFound === false) {
-    el.registeredChildrenBox.hidden = true;
-    el.customerLookupMsg.hidden = false;
-    el.customerLookupMsg.className = "inline-message inline-message--info";
-    el.customerLookupMsg.textContent =
-      "New customer — please add child details below.";
-    return;
-  }
-
-  el.customerLookupMsg.hidden = true;
-  el.registeredChildrenBox.hidden = true;
-}
+/* ------------------------------- Step 4: Customer & children ------------- */
 
 function setSearchLoading(isLoading) {
   el.searchBtn.disabled = isLoading;
@@ -504,117 +501,216 @@ function setSearchLoading(isLoading) {
     : "fa-regular fa-magnifying-glass";
 }
 
+function showLookupMessage(type, text) {
+  if (!text) {
+    el.customerLookupMsg.hidden = true;
+    return;
+  }
+  el.customerLookupMsg.hidden = false;
+  el.customerLookupMsg.className = `inline-message inline-message--${type}`;
+  el.customerLookupMsg.textContent = text;
+}
+
+function kidChip(name, { picked, subtitle, added }) {
+  const icon = picked ? "fa-solid fa-circle-check" : "fa-regular fa-circle";
+  return `
+    <button type="button" class="kid-chip${picked ? " picked" : ""}" data-name="${escapeHtml(name)}" data-added="${added ? "1" : ""}" aria-pressed="${picked}">
+      <i class="${added ? "fa-solid fa-xmark" : icon}"></i>
+      ${escapeHtml(name)}
+      ${subtitle ? `<small>${escapeHtml(subtitle)}</small>` : ""}
+    </button>`;
+}
+
+function renderCustomer() {
+  const status = state.lookupStatus;
+  const locked = status === "found" || status === "new";
+
+  // Phone row: hidden once a customer is locked in (X to change), like the CRM.
+  el.phoneSearchRow.hidden = locked;
+  el.phoneHint.hidden = locked || status === "error";
+  setSearchLoading(status === "loading");
+
+  if (status === "error") {
+    showLookupMessage(
+      "error",
+      state.lookupErrorMessage ||
+        "Couldn't search for this customer — please try again.",
+    );
+  } else {
+    showLookupMessage(null);
+  }
+
+  el.customerBox.hidden = !locked;
+  if (!locked) return;
+
+  el.customerBox.classList.toggle("cust-box--new", status === "new");
+  el.customerBoxTitle.innerHTML =
+    status === "found"
+      ? `<i class="fa-solid fa-user-check"></i> Welcome back · ${escapeHtml(state.phone)}`
+      : `<i class="fa-solid fa-user-plus"></i> New customer · ${escapeHtml(state.phone)}`;
+
+  el.guardianNameField.hidden = status !== "new";
+
+  const known = state.knownChildren;
+  const pickedCount = state.pickedNames.length + state.addedNames.length;
+  el.kidsHead.hidden = known.length === 0 && state.addedNames.length === 0;
+  el.kidsHeadLabel.textContent =
+    known.length > 0
+      ? `Who's coming?${pickedCount ? ` · ${pickedCount} selected` : ""}`
+      : `Children${pickedCount ? ` · ${pickedCount}` : ""}`;
+
+  const allPicked =
+    known.length > 0 &&
+    known.every((child) => state.pickedNames.includes(child.name));
+  el.kidsSelectAllBtn.hidden = known.length < 2;
+  el.kidsSelectAllBtn.textContent = allPicked
+    ? "Clear"
+    : `Select all (${known.length})`;
+
+  el.kidChips.innerHTML =
+    known
+      .map((child) =>
+        kidChip(child.name, {
+          picked: state.pickedNames.includes(child.name),
+          subtitle: child.ageGroup,
+        }),
+      )
+      .join("") +
+    state.addedNames
+      .map((name) => kidChip(name, { picked: true, added: true }))
+      .join("");
+
+  el.newChildLabel.textContent =
+    known.length > 0 ? "New child (not in the list above)" : "Child's name";
+}
+
+function resetCustomer() {
+  state.lookupSeq += 1; // drop any in-flight lookup
+  state.lookupStatus = "idle";
+  state.lookupErrorMessage = null;
+  state.knownChildren = [];
+  state.pickedNames = [];
+  state.addedNames = [];
+  state.guardianName = "";
+  el.guardianNameInput.value = "";
+  el.newChildInput.value = "";
+}
+
+let lookupTimer = null;
+
+function handlePhoneInput() {
+  state.phone = el.phoneInput.value.trim();
+  clearTimeout(lookupTimer);
+  if (state.lookupStatus === "error") state.lookupStatus = "idle";
+
+  // Search as soon as the number is complete — no button tap needed.
+  if (phoneDigits(state.phone).length >= PHONE_MIN_DIGITS) {
+    lookupTimer = setTimeout(handleCustomerSearch, 350);
+  }
+  renderCustomer();
+}
+
 async function handleCustomerSearch() {
+  clearTimeout(lookupTimer);
   const phone = el.phoneInput.value.trim();
-  if (!phone) {
-    el.customerLookupMsg.hidden = false;
-    el.customerLookupMsg.className = "inline-message inline-message--error";
-    el.customerLookupMsg.textContent = "Please enter a phone number to search.";
+  if (phoneDigits(phone).length < 10) {
+    state.lookupStatus = "error";
+    state.lookupErrorMessage = "Please enter your full phone number.";
+    renderCustomer();
     return;
   }
 
   state.phone = phone;
-  state.customerLookupLoading = true;
-  state.customerLookupError = false;
-  state.customerLookupErrorMessage = null;
-  state.customerFound = null;
-  setSearchLoading(true);
-  renderCustomerLookupState();
+  state.lookupStatus = "loading";
+  const seq = ++state.lookupSeq;
+  renderCustomer();
 
   try {
     const result = await lookupCustomerByPhone(phone);
-    state.customerLookupLoading = false;
-    state.customerFound = result.found;
-    // CRM returns each child's age field as `age_group`; keep our internal
-    // shape (`ageGroup`) the same as manually-entered children below.
-    state.registeredChildren = result.found
+    if (seq !== state.lookupSeq) return; // a newer search started
+    state.knownChildren = result.found
       ? result.data.children.map((child) => ({
           name: child.name,
           ageGroup: child.age_group,
         }))
       : [];
-    renderCustomerLookupState();
+    state.pickedNames = [];
+    state.lookupStatus = result.found ? "found" : "new";
   } catch (err) {
-    state.customerLookupLoading = false;
-    state.customerFound = null;
-    state.customerLookupError = true;
-    state.customerLookupErrorMessage = describeApiError(err, "phone");
-    renderCustomerLookupState();
-  } finally {
-    setSearchLoading(false);
+    if (seq !== state.lookupSeq) return;
+    state.lookupStatus = "error";
+    state.lookupErrorMessage = describeApiError(err, "phone");
   }
+  renderCustomer();
+  renderOrderSummary();
+
+  // Found with children → nothing to type; new → straight to the name field.
+  if (state.lookupStatus === "new") {
+    el.guardianNameInput.focus();
+  } else if (
+    state.lookupStatus === "found" &&
+    state.knownChildren.length === 0
+  ) {
+    el.newChildInput.focus();
+  }
+  el.phoneInput.blur();
 }
 
-function handleRegisteredChildToggle(index, checked) {
-  const registeredChild = state.registeredChildren[index];
-  if (!registeredChild) return;
+function handleChangeCustomer() {
+  resetCustomer();
+  el.phoneInput.value = "";
+  state.phone = "";
+  renderCustomer();
+  renderOrderSummary();
+  el.phoneInput.focus();
+}
 
-  if (checked) {
-    const alreadyBlank = state.children.findIndex(
-      (child) => !child.name && !child.ticketNo,
-    );
-    const newChild = { name: registeredChild.name, ticketNo: "" };
-    if (alreadyBlank !== -1) {
-      state.children[alreadyBlank] = newChild;
-    } else {
-      state.children.push(newChild);
-    }
+function handleKidChipClick(chip) {
+  const name = chip.dataset.name;
+  if (chip.dataset.added) {
+    state.addedNames = state.addedNames.filter((n) => n !== name);
+  } else if (state.pickedNames.includes(name)) {
+    state.pickedNames = state.pickedNames.filter((n) => n !== name);
   } else {
-    const idx = state.children.findIndex(
-      (child) => child.name === registeredChild.name,
-    );
-    if (idx !== -1 && state.children.length > 1) {
-      state.children.splice(idx, 1);
-    }
+    state.pickedNames = [...state.pickedNames, name];
   }
-  renderChildren();
+  showFormError(null);
+  renderCustomer();
   renderOrderSummary();
 }
 
-/* ------------------------------- Step 5: Children ------------------------ */
-
-function renderChildren() {
-  el.childrenList.innerHTML = state.children
-    .map((child, index) => {
-      const removeDisabled = state.children.length <= 1;
-      return `
-        <div class="child-row" data-child-index="${index}">
-          <div class="child-row__field child-row__name">
-            <label>Child Name *</label>
-            <input type="text" class="child-name-input" data-child-index="${index}" placeholder="Child's full name" value="${escapeHtml(child.name)}">
-          </div>
-          <div class="child-row__field child-row__ticket">
-            <label>Ticket / Band #</label>
-            <input type="text" class="child-ticket-input" data-child-index="${index}" placeholder="Optional">
-          </div>
-          <button type="button" class="child-row__remove" data-child-index="${index}" ${removeDisabled ? "disabled" : ""} aria-label="Remove child">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>`;
-    })
-    .join("");
-
-  state.children.forEach((child, index) => {
-    const ticketInput = el.childrenList.querySelector(
-      `.child-ticket-input[data-child-index="${index}"]`,
-    );
-    if (ticketInput) ticketInput.value = child.ticketNo || "";
-  });
+function handleSelectAllKids() {
+  const all = state.knownChildren.map((child) => child.name);
+  const allPicked = all.every((name) => state.pickedNames.includes(name));
+  state.pickedNames = allPicked ? [] : all;
+  renderCustomer();
+  renderOrderSummary();
 }
 
 function handleAddChild() {
-  state.children.push({ name: "", ticketNo: "" });
-  renderChildren();
+  const name = el.newChildInput.value.trim();
+  if (!name) {
+    el.newChildInput.focus();
+    return;
+  }
+  const known = state.knownChildren.find(
+    (child) => child.name.toLowerCase() === name.toLowerCase(),
+  );
+  if (known) {
+    // Typed a child we already know — just tick them.
+    if (!state.pickedNames.includes(known.name)) {
+      state.pickedNames = [...state.pickedNames, known.name];
+    }
+  } else if (
+    !state.addedNames.some((n) => n.toLowerCase() === name.toLowerCase())
+  ) {
+    state.addedNames = [...state.addedNames, name];
+  }
+  el.newChildInput.value = "";
+  showFormError(null);
+  renderCustomer();
   renderOrderSummary();
-  updateCheckinButtonState();
-}
-
-function handleRemoveChild(index) {
-  if (state.children.length <= 1) return;
-  state.children.splice(index, 1);
-  renderChildren();
-  renderOrderSummary();
-  updateCheckinButtonState();
+  el.newChildInput.focus(); // ready for the next sibling
 }
 
 /* ------------------------------- Order summary ------------------------- */
@@ -628,17 +724,20 @@ function renderOrderSummary() {
         ? zone.name
         : "—";
   const plan = getSelectedPlan();
+  const names = getChildNames();
+  const total = calculateTotal();
 
   el.summaryZone.textContent = zoneLabel;
   el.summaryPlan.textContent = plan ? plan.name : "Select a plan";
   el.summaryAge.textContent = state.ageGroup || "—";
-  el.summaryChildren.textContent = String(state.children.length);
-  el.summaryDiscount.textContent =
-    state.discount > 0 ? `− ${formatMoney(state.discount)}` : "—";
-
-  const total = calculateTotal();
+  el.summaryChildren.textContent = names.length ? names.join(", ") : "—";
   el.summaryTotal.textContent = formatMoney(total);
   el.checkinBtnLabel.textContent = `Check In · ${formatMoney(total)}`;
+
+  el.mobileBarTotal.textContent = formatMoney(total);
+  el.mobileBarCount.textContent = !plan
+    ? "Pick a plan"
+    : `${plan.name} · ${names.length || 1} ${names.length > 1 ? "children" : "child"}`;
 }
 
 /* ------------------------------- Validation + submit ------------------- */
@@ -646,47 +745,59 @@ function renderOrderSummary() {
 function updateCheckinButtonState() {
   const stillLoading = state.zonesLoading || state.plansLoading;
   const hasError = state.zonesError || state.plansError;
-  el.checkinBtn.disabled = stillLoading || hasError || state.submitting;
+  const disabled = stillLoading || hasError || state.submitting;
+  el.checkinBtn.disabled = disabled;
+  el.mobileCheckinBtn.disabled = disabled;
 }
 
+// Returns [message, stepId] so phones can jump to the step that needs fixing.
 function validateForm() {
-  if (state.selectedZoneId === null) return "Please select a play zone.";
-  if (!state.selectedPlanId) return "Please select an admission plan.";
-  if (!state.ageGroup) return "Please select an age group.";
-  if (!state.phone.trim())
-    return "Please search for a customer by phone number first.";
-
-  const namedChildren = state.children.filter(
-    (child) => child.name.trim().length > 0,
-  );
-  if (namedChildren.length === 0)
-    return "Please add at least one child with a name.";
-
+  if (!state.selectedPlanId)
+    return ["Please select an admission plan.", "step-plan"];
+  if (!state.ageGroup) return ["Please select an age group.", "step-age"];
+  if (state.lookupStatus !== "found" && state.lookupStatus !== "new")
+    return ["Please enter your phone number.", "step-customer"];
+  if (getChildNames().length === 0)
+    return [
+      state.knownChildren.length
+        ? "Tick at least one child, or add a new one."
+        : "Please add your child's name.",
+      "step-customer",
+    ];
   return null;
 }
 
 function showFormError(message) {
-  if (!message) {
-    el.formError.hidden = true;
-    el.formError.textContent = "";
-    return;
+  [el.formError, el.mobileFormError].forEach((box) => {
+    box.hidden = !message;
+    box.textContent = message || "";
+  });
+}
+
+function setSubmitting(isSubmitting) {
+  state.submitting = isSubmitting;
+  updateCheckinButtonState();
+  if (isSubmitting) {
+    const spinner = `<i class="fa-solid fa-spinner fa-spin"></i> Checking In...`;
+    el.checkinBtnLabel.innerHTML = spinner;
+    el.mobileCheckinBtn.innerHTML = spinner;
+  } else {
+    el.mobileCheckinBtn.textContent = "Check In";
+    renderOrderSummary();
   }
-  el.formError.hidden = false;
-  el.formError.textContent = message;
 }
 
 async function handleCheckin() {
-  const validationError = validateForm();
-  if (validationError) {
-    showFormError(validationError);
+  if (state.submitting) return;
+  const invalid = validateForm();
+  if (invalid) {
+    showFormError(invalid[0]);
+    scrollToStep(invalid[1]);
     return;
   }
   showFormError(null);
 
   const plan = getSelectedPlan();
-  const namedChildren = state.children.filter(
-    (child) => child.name.trim().length > 0,
-  );
 
   // A plan can belong to multiple zones (see plan.zones), so there's no
   // single "the" zone for it. If the customer filtered to one specific zone,
@@ -700,23 +811,17 @@ async function handleCheckin() {
 
   const payload = {
     phone: state.phone,
+    name: state.lookupStatus === "new" ? el.guardianNameInput.value.trim() : undefined,
     zoneId,
     planId: plan.id,
     ageGroup: state.ageGroup,
-    discount: Number(state.discount || 0),
-    totalAmount: calculateTotal(),
-    status: "UNPAID",
-    children: namedChildren.map((child) => ({
-      name: child.name.trim(),
+    children: getChildNames().map((name) => ({
+      name,
       ageGroup: state.ageGroup,
-      ticketNo: child.ticketNo || "",
     })),
-    createdAt: new Date().toISOString(),
   };
 
-  state.submitting = true;
-  el.checkinBtn.disabled = true;
-  el.checkinBtnLabel.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Checking In...`;
+  setSubmitting(true);
 
   try {
     const res = await submitBooking(payload);
@@ -724,10 +829,15 @@ async function handleCheckin() {
       throw new Error("Booking submission was not successful");
     showConfirmation(res.data.bookingId);
   } catch (err) {
-    state.submitting = false;
-    updateCheckinButtonState();
-    renderOrderSummary();
-    showFormError("Something went wrong while checking in — please try again.");
+    setSubmitting(false);
+    showFormError(
+      err && err.status === 422
+        ? err.message
+        : err && err.status === 429
+          ? "Too many attempts — please wait a minute and try again."
+          : describeApiError(err) ||
+            "Something went wrong while checking in — please try again.",
+    );
   }
 }
 
@@ -735,8 +845,8 @@ function renderQrCode(bookingId) {
   const qrText = `ZORBI-BOOKING-${bookingId}`;
   const qrOptions = {
     text: qrText,
-    width: 200,
-    height: 200,
+    width: 220,
+    height: 220,
     correctLevel: QRCode.CorrectLevel.M,
   };
 
@@ -754,6 +864,7 @@ function renderQrCode(bookingId) {
 
 function showConfirmation(bookingId) {
   el.bookingFormWrapper.hidden = true;
+  el.mobileBar.hidden = true;
   el.bookingConfirmation.hidden = false;
   renderQrCode(bookingId);
   window.scrollTo({
@@ -767,22 +878,15 @@ function resetBookingForm() {
   state.selectedPlanId = null;
   state.ageGroup = null;
   state.phone = "";
-  state.customerLookupLoading = false;
-  state.customerLookupError = false;
-  state.customerLookupErrorMessage = null;
-  state.customerFound = null;
-  state.registeredChildren = [];
-  state.children = [{ name: "", ticketNo: "" }];
-  state.discount = 0;
+  resetCustomer();
   state.submitting = false;
 
   el.phoneInput.value = "";
-  el.discountInput.value = "0";
   showFormError(null);
-  renderCustomerLookupState();
+  renderCustomer();
   renderAgeButtons();
-  renderChildren();
-  el.checkinBtnLabel.textContent = "Check In · Rs 0";
+  el.mobileCheckinBtn.textContent = "Check In";
+  updateCheckinButtonState();
 
   el.qrCodeWrap.innerHTML = "";
   el.qrCodePrint.innerHTML = "";
@@ -791,6 +895,8 @@ function resetBookingForm() {
 
   el.bookingConfirmation.hidden = true;
   el.bookingFormWrapper.hidden = false;
+  el.mobileBar.hidden = false;
+  renderOrderSummary();
 
   // Plans depend on allLoadedZones (used to fan out "All Zones" requests),
   // so zones must finish loading first.
@@ -820,51 +926,39 @@ el.ageButtonsRow.addEventListener("click", (event) => {
   handleAgeButtonClick(btn.dataset.age);
 });
 
-el.searchBtn.addEventListener("click", handleCustomerSearch);
+el.phoneInput.addEventListener("input", handlePhoneInput);
 el.phoneInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
     handleCustomerSearch();
   }
 });
+el.searchBtn.addEventListener("click", handleCustomerSearch);
+el.customerChangeBtn.addEventListener("click", handleChangeCustomer);
 
-el.registeredChildrenList.addEventListener("change", (event) => {
-  const checkbox = event.target.closest(".registered-child-checkbox");
-  if (!checkbox) return;
-  handleRegisteredChildToggle(
-    Number(checkbox.dataset.childIndex),
-    checkbox.checked,
-  );
+el.kidChips.addEventListener("click", (event) => {
+  const chip = event.target.closest(".kid-chip");
+  if (chip) handleKidChipClick(chip);
 });
+el.kidsSelectAllBtn.addEventListener("click", handleSelectAllKids);
 
 el.addChildBtn.addEventListener("click", handleAddChild);
-
-el.childrenList.addEventListener("click", (event) => {
-  const removeBtn = event.target.closest(".child-row__remove");
-  if (removeBtn && !removeBtn.disabled) {
-    handleRemoveChild(Number(removeBtn.dataset.childIndex));
+el.newChildInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    handleAddChild();
   }
 });
-
-el.childrenList.addEventListener("input", (event) => {
-  const index = Number(event.target.dataset.childIndex);
-  if (Number.isNaN(index)) return;
-
-  if (event.target.classList.contains("child-name-input")) {
-    state.children[index].name = event.target.value;
-    renderOrderSummary();
-  } else if (event.target.classList.contains("child-ticket-input")) {
-    state.children[index].ticketNo = event.target.value;
+el.newChildInput.addEventListener("input", renderOrderSummary);
+el.guardianNameInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    el.newChildInput.focus();
   }
-});
-
-el.discountInput.addEventListener("input", (event) => {
-  const value = Number(event.target.value);
-  state.discount = Number.isNaN(value) || value < 0 ? 0 : value;
-  renderOrderSummary();
 });
 
 el.checkinBtn.addEventListener("click", handleCheckin);
+el.mobileCheckinBtn.addEventListener("click", handleCheckin);
 el.bookAnotherBtn.addEventListener("click", resetBookingForm);
 el.printQrBtn.addEventListener("click", () => window.print());
 
@@ -872,9 +966,12 @@ el.printQrBtn.addEventListener("click", () => window.print());
 /* This script is loaded at the end of <body>, so the DOM is already parsed
    by the time it runs — no need to wait for DOMContentLoaded. */
 
+// The theme's smooth-scroll wrapper is CSS-transformed, which breaks
+// position:fixed for anything inside it — the bar has to live on <body>.
+document.body.appendChild(el.mobileBar);
+
 renderAgeButtons();
-renderChildren();
-renderCustomerLookupState();
+renderCustomer();
 renderOrderSummary();
 // Plans depend on allLoadedZones (used to fan out "All Zones" requests),
 // so zones must finish loading first.
